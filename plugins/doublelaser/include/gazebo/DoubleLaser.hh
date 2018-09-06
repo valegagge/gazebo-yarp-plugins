@@ -35,7 +35,7 @@ namespace gazebo
 /// The device will receive the gazebo pointer, parse the model,
 /// and wait for yarp connections and the gazebo wait event.
 ///
-class GazeboYarpDoubleLaser : public SensorPlugin
+class GazeboYarpDoubleLaser : public ModelPlugin
 {
 public:
     GazeboYarpDoubleLaser();
@@ -44,7 +44,7 @@ public:
     /**
      * Saves the gazebo pointer, creates the device driver
      */
-    void Load(sensors::SensorPtr _sensor, sdf::ElementPtr _sdf);
+    void Load(physics::ModelPtr _parent, sdf::ElementPtr _sdf);
 
 private:
     yarp::dev::PolyDriver m_wrapper_rangeFinder;

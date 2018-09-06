@@ -10,7 +10,10 @@
 #include <GazeboYarpPlugins/Handler.hh>
 #include <GazeboYarpPlugins/ConfHelpers.hh>
 
-#include <gazebo/sensors/RaySensor.hh>
+//#include <gazebo/sensors/RaySensor.hh>
+
+#include <gazebo/physics/Model.hh>
+
 #include <yarp/dev/Wrapper.h>
 #include <yarp/os/Network.h>
 #include <yarp/os/Log.h>
@@ -58,7 +61,7 @@ GZ_REGISTER_SENSOR_PLUGIN(GazeboYarpDoubleLaser)
     /**
      * Saves the gazebo pointer, creates the device driver
      */
-    void GazeboYarpDoubleLaser::Load(sensors::SensorPtr _sensor, sdf::ElementPtr _sdf)
+    void GazeboYarpDoubleLaser::Load(physics::ModelPtr _parent, sdf::ElementPtr _sdf)
     {
         yError() << "GazeboYarpDoubleLaser : sono nella load";
         yarp::os::Network::init();
@@ -68,14 +71,14 @@ GZ_REGISTER_SENSOR_PLUGIN(GazeboYarpDoubleLaser)
             return;
         }
 
-        if (!_sensor) {
-            gzerr << "GazeboYarpDoubleLaser plugin requires a sensor.\n";
+        if (!_parent) {
+            gzerr << "GazeboYarpDoubleLaser plugin requires a parent.\n";
             return;
         }
 
-        _sensor->SetActive(true);
         
-        m_sensorName = _sensor->ScopedName();
+        
+        m_sensorName = _parent->ScopedName();
         
         yError() << "GazeboYarpDoubleLaser : my name is " << m_sensorName;
 
