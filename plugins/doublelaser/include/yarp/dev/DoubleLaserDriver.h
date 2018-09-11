@@ -109,6 +109,15 @@ private:
 
     std::string m_deviceName;
     gazebo::sensors::RaySensor* m_parentSensor;
+    
+    yarp::dev::PolyDriver * m_driver_laserFront;
+    yarp::dev::IRangefinder2D* m_dev_laserFront;
+
+    yarp::dev::PolyDriver * m_driver_laserBack;
+    yarp::dev::IRangefinder2D* m_dev_laserBack;
+    
+    int m_samples;
+    double m_resolution;
 
     /**
      * Connection to the WorldUpdateBegin Gazebo event

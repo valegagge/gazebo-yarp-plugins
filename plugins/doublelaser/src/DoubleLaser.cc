@@ -24,7 +24,7 @@ using namespace std;
 namespace gazebo
 {
 
-GZ_REGISTER_SENSOR_PLUGIN(GazeboYarpDoubleLaser)
+GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
 
     GazeboYarpDoubleLaser::GazeboYarpDoubleLaser() : m_iWrap_rangeFinder(0), m_iWrap_doublelaser(0)
     {}
@@ -78,40 +78,88 @@ GZ_REGISTER_SENSOR_PLUGIN(GazeboYarpDoubleLaser)
 
         
         
-        m_sensorName = _parent->ScopedName();
+        m_sensorName = _parent->GetScopedName();
         
         yError() << "GazeboYarpDoubleLaser : my name is " << m_sensorName;
 
         //Insert the pointer in the singleton handler for retriving it in the yarp driver
-        GazeboYarpPlugins::Handler::getHandler()->setSensor(_sensor.get());
+        GazeboYarpPlugins::Handler::getHandler()->setRobot(get_pointer(_parent));
 
 
-        // Add the gazebo_controlboard device driver to the factory.
+        // Add the gazebo_doubleLaser device driver to the factory.
         yarp::dev::Drivers::factory().add(new yarp::dev::DriverCreatorOf<yarp::dev::GazeboYarpDoubleLaserDriver>("gazebo_doubleLaser", "Rangefinder2DWrapper", "GazeboYarpDoubleLaserDriver"));
 
         //Getting .ini configuration file from sdf
         bool configuration_loaded = false;
+//-------------------------------------------------------------------------
+//          ::yarp::os::Property wrapper_properties;
+//          ::yarp::os::Property driver_properties;
+//         
+//         configuration_loaded = GazeboYarpPlugins::loadConfigSensorPlugin(_sensor,_sdf,driver_properties);
+//         wrapper_properties = driver_properties;
+// 
+// 
+//         driver_properties.put(YarpLaserSensorScopedName.c_str(), m_sensorName.c_str());
+//         
+//         //Open the wrapper
+//         wrapper_properties.put("device","Rangefinder2DWrapper");         
+//---------------------------------------------------        
+        yarp::os::Bottle wrapper_group;
+        yarp::os::Bottle driver_group;
+        if (_sdf->HasElement("yarpConfigurationFile")) 
+        {
+            std::string ini_file_name = _sdf->Get<std::string>("yarpConfigurationFile");
+            std::string ini_file_path = gazebo::common::SystemPaths::Instance()->FindFileURI(ini_file_name);
 
-        ::yarp::os::Property wrapper_properties;
-        ::yarp::os::Property driver_properties;
-        
-        configuration_loaded = GazeboYarpPlugins::loadConfigSensorPlugin(_sensor,_sdf,driver_properties);
-        
-        
+            yError() << "GazeboYarpDoubleLaser::Load() ini file path=" << ini_file_path;
+            yError() << "GazeboYarpDoubleLaser::Load() ini_file_name=" << ini_file_name;    
+            
+            GazeboYarpPlugins::addGazeboEnviromentalVariablesModel(_parent,_sdf,m_parameters);
+
+            bool wipe = false;
+            if (ini_file_path != "" && m_parameters.fromConfigFile(ini_file_path.c_str(),wipe))
+            {
+                m_parameters.put("gazebo_ini_file_path",ini_file_path.c_str());
+
+//                 wrapper_group = m_parameters.findGroup("WRAPPER");
+//                 if(wrapper_group.isNull()) 
+//                 {
+//                     yError("GazeboYarpDoubleLaser : [WRAPPER] group not found in config file\n");
+//                     return;
+//                 }
+
+                //ho tolto [ROS]
+                configuration_loaded = true;
+                yError() << "GazeboYarpDoubleLaser::ho caricato la cfg del wrapper rangefinder=" <<  wrapper_group.toString();
+            }
+            else
+            {
+                yError() << "GazeboYarpDoubleLaser::Load error: ini file path=" << ini_file_path;
+                return;
+            }
+
+        }
          if (!configuration_loaded)
         {
             yError() << "GazeboYarpDoubleLaser::Load error: unabble to load configuration";
             return;
         };
-
-        wrapper_properties = driver_properties;
-
-
-        driver_properties.put(YarpLaserSensorScopedName.c_str(), m_sensorName.c_str());
         
-        //Open the wrapper
-        wrapper_properties.put("device","Rangefinder2DWrapper");
-        if( m_wrapper_rangeFinder.open(wrapper_properties) ) 
+        
+        yError() << "GazeboYarpDoubleLaser PARAMETERS :" << m_parameters.toString();
+        //apro il wrapper Rangefinder2DWrapper
+//         yarp::os::Bottle ros_group = m_parameters.findGroup("ROS");
+//         if(!ros_group.isNull())
+//             wrapper_group.append(ros_group);
+//         else
+//         { 
+//              yError() << "GazeboYarpDoubleLaser WRAPPERBOTTLE : non trovo ROS";
+//         }
+//         
+//          yError() << "GazeboYarpDoubleLaser WRAPPERBOTTLE :" << wrapper_group.toString();
+        
+        //if( m_wrapper_rangeFinder.open(wrapper_properties) ) 
+        if( m_wrapper_rangeFinder.open(m_parameters/*wrapper_group*/) )  
         {
             yError() << "GazeboYarpDoubleLaser : ho aperto il wrapper Rangefinder2DWrapper ";
         } 
@@ -126,9 +174,47 @@ GZ_REGISTER_SENSOR_PLUGIN(GazeboYarpDoubleLaser)
             yError("GazeboYarpDoubleLaser : wrapper interface not found, load failed. Rangefinder2DWrapper");
             return;
         }
+        else
+        {
+             yError() << "GazeboYarpDoubleLaser : ho ho fatto la view di Rangefinder2DWrapper ";
+        }
+        
+        
+        
+         //cerco i due sensori laser tra i driver di yarp
+        yarp::dev::PolyDriverDescriptor laser1, laser2;
+        std::string scopedDeviceName_laser1 = "base_laser";//default::SIM_CER_ROBOT::mobile_base_body_link::base_laser"; //m_sensorName + "::" + "base_laser";
+        std::string scopedDeviceName_laser2 = "base_laser2"; //default::SIM_CER_ROBOT::mobile_base_body_link::base_laser2";
+        laser1.poly = GazeboYarpPlugins::Handler::getHandler()->getDevice(scopedDeviceName_laser1);
+        if(laser1.poly == nullptr)
+        {
+            yError()<<"GazeboYarpDoubleLaser: non trovo laser1";
+            return;
+        }
+        laser2.poly = GazeboYarpPlugins::Handler::getHandler()->getDevice(scopedDeviceName_laser2);
+        if(laser2.poly == nullptr)
+        {
+            yError()<<"GazeboYarpDoubleLaser: non trovo laser2";
+            return;
+        }
+        
+        
+         yError()<<"GazeboYarpDoubleLaser: ho trovato tutti e due i laser!! OK";
+         
+         //GazeboYarpPlugins::Handler::getHandler()->setDevice("laser_sensor", laser1.poly); sono gia stati aggiunti ..credo..
+         m_lasers.push(laser1);
+         
+         //GazeboYarpPlugins::Handler::getHandler()->setDevice("laser_sensor2", laser2.poly); sono gia stati aggiunti ..credo..
+         m_lasers.push(laser2);
+        
+        
         
         //Open the driver DoubleLaser
+         yError() << "GazeboYarpDoubleLaser : sto per aprire il device doublelaser..... ";
+        ::yarp::os::Property driver_properties;
         driver_properties.put("device","gazebo_doubleLaser");
+        driver_properties.put("laserFront",scopedDeviceName_laser1);
+        driver_properties.put("laserBack",scopedDeviceName_laser2);
         if( m_driver_doublelaser.open(driver_properties) ) 
         {
         
@@ -148,40 +234,15 @@ GZ_REGISTER_SENSOR_PLUGIN(GazeboYarpDoubleLaser)
         
         listofdoubellaser.push(doublelaser_desc);
         
-        if(m_iWrap_doublelaser->attachAll(listofdoubellaser))
+        if(m_iWrap_rangeFinder->attachAll(listofdoubellaser))
         {
-            yError() << "GazeboYarpDoubleLaser: ho fatto attach di double laser a rangefinder wrapper. OK";
+            yError() << "GazeboYarpDoubleLaser: ho fatto attach di rangeFinder wrapper al double laser. OK";
         }
         else
         {
-            yError() << "GazeboYarpDoubleLaser: ERRORE mentre facevo attach di double laser a rangefinder wrapper.";
+            yError() << "GazeboYarpDoubleLaser: ERRORE mentre facevo attach di rangeFinder wrapper al double laser.";
         }
         
-        //cerco i due sensori laser
-        yarp::dev::PolyDriverDescriptor laser1, laser2;
-        std::string scopedDeviceName_laser1 = m_sensorName + "::" + "laser_sensor";
-        std::string scopedDeviceName_laser2 = m_sensorName + "::" + "laser_sensor2";
-        laser1.poly = GazeboYarpPlugins::Handler::getHandler()->getDevice(scopedDeviceName_laser1);
-        if(laser1.poly == nullptr)
-        {
-            yError()<<"GazeboYarpDoubleLaser: non trovo laser1";
-            return;
-        }
-        laser2.poly = GazeboYarpPlugins::Handler::getHandler()->getDevice(scopedDeviceName_laser2);
-        if(laser2.poly == nullptr)
-        {
-            yError()<<"GazeboYarpDoubleLaser: non trovo laser2";
-            return;
-        }
-        
-        
-         yError()<<"GazeboYarpDoubleLaser: ho trovato tutti e due i laser!! OK";
-         
-         GazeboYarpPlugins::Handler::getHandler()->setDevice("laser_sensor", laser1.poly);
-         m_lasers.push(laser1);
-         
-         GazeboYarpPlugins::Handler::getHandler()->setDevice("laser_sensor2", laser2.poly);
-         m_lasers.push(laser2);
          
          
          
@@ -202,7 +263,7 @@ GZ_REGISTER_SENSOR_PLUGIN(GazeboYarpDoubleLaser)
              yError("GazeboYarpDoubleLaser : ERRORE mentre facevo attach a tutti i laser.");
         }
         //Insert the pointer in the singleton handler for retriving it in the yarp driver
-        GazeboYarpPlugins::Handler::getHandler()->setSensor(_sensor.get());
+        GazeboYarpPlugins::Handler::getHandler()->setRobot(get_pointer(_parent));
 
      }
 
