@@ -15,6 +15,8 @@
 
 #include <yarp/os/LogStream.h>
 #include <yarp/os/LockGuard.h>
+#include <math.h>
+#include <cmath>
 
 using namespace yarp::os;
 using namespace yarp::sig;
@@ -248,6 +250,48 @@ bool GazeboYarpDoubleLaserDriver::setScanRate(double rate)
     return false;
 }
 
+#define PI 3.14159265
+double GazeboYarpDoubleLaserDriver::calculate(int sensNum, double distance, bool front)
+{
+    double angle = (sensNum*m_resolution);
+//     if(front)
+//         angle = angle - 90.0;
+//     else
+//     {
+//         angle = angle + 90.0;
+//     }
+
+
+
+    angle =  angle + 90.0;
+    if(angle>360)
+        angle = angle - 360.0;
+
+    double angle_rad = angle*PI/180;
+    double Ay = std::abs(sin(angle_rad)*distance);
+    double Ax = std::abs(cos(angle_rad)*distance);
+    double Bx, By;
+    if(front)
+    {
+        Bx = Ax; // + 0.031;
+        By = Ay - 0.095;
+    }
+    else
+    {
+        Bx = Ax; // - 0.031;
+        By = Ay  - 0.095;
+    }
+
+    //double beta = atan(By/Bx); per ora non la uso
+    double newdistance = std::sqrt((Bx*Bx)+(By*By));
+    return newdistance;
+
+
+//     double Ax  = cos(angle)*distance;
+//     double beta = atan(By/Bx);
+//     double newdistance = Ax/cos(beta);
+//     return std::abs(newdistance);
+}
 
 bool GazeboYarpDoubleLaserDriver::getRawData(yarp::sig::Vector &out)
 {
@@ -264,12 +308,15 @@ bool GazeboYarpDoubleLaserDriver::getRawData(yarp::sig::Vector &out)
     
     for(int i=0; i<m_samples; i++)
     {
+        double tmp;
         if(dataFront[i]!= INFINITY)
-            out[i] = dataFront[i];
+            tmp = calculate(i, dataFront[i], true);
         else if(dataBack[i] != INFINITY)
-            out[i] = dataBack[i];
+            tmp = calculate(i, dataBack[i], false);
         else
-            out[i] = INFINITY;
+            tmp = INFINITY;
+
+        out[i] =tmp;
     }
     
     return true;

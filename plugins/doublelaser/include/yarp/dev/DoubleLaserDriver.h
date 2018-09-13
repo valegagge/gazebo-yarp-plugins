@@ -107,6 +107,8 @@ public:
 
 private:
 
+
+    double calculate(int sensNum, double distance, bool front);
     std::string m_deviceName;
     gazebo::sensors::RaySensor* m_parentSensor;
     
