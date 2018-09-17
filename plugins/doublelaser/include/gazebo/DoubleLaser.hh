@@ -47,6 +47,8 @@ public:
     void Load(physics::ModelPtr _parent, sdf::ElementPtr _sdf);
 
 private:
+
+    bool readConfigurationFromFile(physics::ModelPtr _parent, sdf::ElementPtr _sdf); //Getting .ini configuration file from sdf
     yarp::dev::PolyDriver m_wrapper_rangeFinder;
     yarp::dev::IMultipleWrapper* m_iWrap_rangeFinder;
     

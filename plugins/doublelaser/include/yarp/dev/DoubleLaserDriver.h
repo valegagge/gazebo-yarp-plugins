@@ -57,8 +57,8 @@ extern const std::string YarpLaserSensorScopedName;
 
 class yarp::dev::GazeboYarpDoubleLaserDriver:
     public yarp::dev::DeviceDriver,
-    public yarp::dev::IRangefinder2D,
-    public yarp::dev::IMultipleWrapper
+    public yarp::dev::IRangefinder2D
+//    public yarp::dev::IMultipleWrapper
 {
 public:
 
@@ -87,9 +87,9 @@ public:
     bool open(yarp::os::Searchable& config);
     bool close();
     
-    //IMultipleWrapper interface
-    bool attachAll(const PolyDriverList &p) override;
-    bool detachAll() override;
+//     //IMultipleWrapper interface
+//     bool attachAll(const PolyDriverList &p) override;
+//     bool detachAll() override;
     
     //IRangefinder2D interface
     virtual bool getRawData(yarp::sig::Vector &data) override;
@@ -108,7 +108,9 @@ public:
 private:
 
 
-    double calculate(int sensNum, double distance, bool front);
+    void calculate(int sensNum, double distance, bool front, int &newSensNum, double &newdistance);
+    bool getLasersFromGazebo(yarp::os::Searchable& config);
+    bool init(void);
     std::string m_deviceName;
     gazebo::sensors::RaySensor* m_parentSensor;
     
@@ -120,6 +122,9 @@ private:
     
     int m_samples;
     double m_resolution;
+
+    bool m_inited;
+    bool m_onSimulation;
 
     /**
      * Connection to the WorldUpdateBegin Gazebo event
