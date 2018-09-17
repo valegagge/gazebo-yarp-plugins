@@ -363,12 +363,14 @@ void GazeboYarpDoubleLaserDriver::calculate(int sensNum, double distance, bool f
     if(front)
     {
         Bx = Ax; // + 0.031;
-        By = Ay - 0.095;
+        //By = Ay - 0.095;
+        By = Ay + 0.07;
     }
     else
     {
         Bx = Ax; // - 0.031;
-        By = Ay  - 0.095;
+        //By = Ay  - 0.095;
+        By = Ay  + 0.085;
     }
 
     double betarad = atan(By/Bx); //per ora non la uso
