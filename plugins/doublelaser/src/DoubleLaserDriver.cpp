@@ -346,123 +346,109 @@ bool GazeboYarpDoubleLaserDriver::setScanRate(double rate)
 }
 
 #define PI 3.14159265
+
+static double convertAngle_user2Hw(double userAngle)
+{
+    double hwAngle =  userAngle + 90.0;
+    if(hwAngle>360)
+        hwAngle = hwAngle - 360.0;
+    return hwAngle;
+}
+
+static double convertAngle_hw2user(double hwAngle)
+{
+    double userAngle = hwAngle-90.0;
+    if(userAngle<0)
+        userAngle = userAngle+360.0;
+    return userAngle;
+}
+
+static double convertAngle_degree2rad(double angle)
+{
+    return angle*PI/180.0;
+}
+
+
+static double convertAngle_rad2degree(double angle)
+{
+    return angle*180.0/PI;
+}
+
+
 void GazeboYarpDoubleLaserDriver::calculate(int sensNum, double distance, bool front, int &newSensNum, double &newdistance)
 {
+    //calculate the input angle in degree
     double angle_input = (sensNum*m_resolution);
 
+    //converto fro user pace to hw space and to rad
+    double hw_input_angle = convertAngle_user2Hw(angle_input);
+    double angle_rad = convertAngle_degree2rad(hw_input_angle);
 
-
-    double angle =  angle_input + 90.0;
-    if(angle>360)
-        angle = angle - 360.0;
-
-    double angle_rad = angle*PI/180;
+    //calculate vertical and horizontal components of input angle
     double Ay = std::abs(sin(angle_rad)*distance);
     double Ax = std::abs(cos(angle_rad)*distance);
-    double Bx, By;
+
+    //calculate vertical and horizontal components of new angle with offset. the translation is only on y componet.
+    double By, Bx = Ax;
     if(front)
     {
-        Bx = Ax; // + 0.031;
-        //By = Ay - 0.095;
         By = Ay + 0.07;
     }
     else
     {
-        Bx = Ax; // - 0.031;
-        //By = Ay  - 0.095;
         By = Ay  + 0.085;
     }
 
-    double betarad = atan(By/Bx); //per ora non la uso
-    double beta = betarad*180/PI;
+    double betarad = atan(By/Bx);
+    double beta = convertAngle_rad2degree(betarad);
     double angle2;
-    //atan ha codominio= (-PI/2 , PI/2) allora devo poratre tutto nel range (0, PI) normalizzando l'angolo di input a 180 gradi e beta sommando 90
 
+    //atan has codominio = (-PI/2 , PI/2), but since the input is only >0 than the atan output is in (0, PI/2).
+    //Now I need to normalize the angle according to the input angle.
     double beta2;
 
-    if(angle>=90.0 && angle<180)
+    if(hw_input_angle>=90.0 && hw_input_angle<180)
         beta2=180-beta;
-    else if(angle >=180 && angle <270)
+    else if(hw_input_angle >=180 && hw_input_angle <270)
         beta2= beta+180;
-    else if(angle >=270)
+    else if(hw_input_angle >=270)
         beta2=360-beta;
     else
         beta2=beta;
 
 
+    //now I check the difference between the input angle and the calculated angle in order to understand if I need to change the slot (sensorNum)
+    double diff=beta2-hw_input_angle;
+    newSensNum= sensNum+ round(diff);
+    if(newSensNum>=m_samples)
+    {
+        newSensNum = newSensNum-m_samples;
+        yError() << "GazeboYarpDoubleLaserDriver::calculate...something stange has been happened";
+    }
 
-//     //calcolo numero quadrante
-//     int quadrante;
-//     if(angle>=90.0 && angle<180)
-//         quadrante=1;
-//     else if(angle >=180 && angle <270)
-//         quadrante=2;
-//     else if(angle >=270)
-//         quadrante=3;
-//     else
-//         quadrante=0;
+    newdistance = std::sqrt((Bx*Bx)+(By*By));
 
- //   double beta2= beta + (90.0*quadrante);
-    angle2=angle;
 
-//     if(angle>=90.0 && angle<180)
-//         angle2 = angle-90;
-//     else if(angle >=180 && angle <270)
-//         angle2 = angle-180;
-//     else if(angle >=270)
-//         angle2=angle-270;
-//     else
-//         angle2=angle;
-
-//     if(angle>180.0)
-//         angle2 = angle_input - 180;
-//     else
-//         angle2 = angle_input;
-
-    //normalizzo beta
-//     beta= beta+90.0;
-//     std::string betaSTR="<";
-//
-//      if(beta>360)
-//      {
-//         beta = beta - 360.0;
-//         betaSTR=">";
-//      }
-    double diff=beta2-angle2;
+    //------debug stuff----
     std::string res= "==>OK";
     if(std::abs(diff)>m_resolution)
-        res="==> cambia slot!!!";
+        res="==> change slot!!!";
 
     std::string laser="front";
     if(!front)
         laser="back";
     //yError() << laser << "ANGLE_in=" << angle_input << "ANGLE=" << angle << "BETA="<<beta  <<"BETA2=" << beta2 <<  "  angle2=" <<angle2 << "DIFF="<< diff<<  res;
 
-    newdistance = std::sqrt((Bx*Bx)+(By*By));
-
-
-    double beta3 = beta2-90;
-    if(beta3<0)
-        beta3 = beta3+360;
+    double beta3 = convertAngle_hw2user(beta2);
 
     //newSensNum=round(beta3/m_resolution); per semplificare i calcoli la calcolo cosi:
-    newSensNum= sensNum+ round(diff);
-    //TODO: aggiungi verifica di maxsize dei sensori
-    if(newSensNum>=m_samples)
-    {
-        newSensNum = newSensNum-m_samples;
-        yError() << "******* HO FATTO IL GIRO!!! **************";
-    }
+
+    yError() << laser << "INPUT_A=" <<angle_input << "("<<sensNum<<")"<< "ORIGINAL_D=" << distance<< "ORIGINAL_A=" << hw_input_angle << "NEW_DIST="<< newdistance << "NEW_ang=" << beta2  << "OUPUT_A="<< beta3 << "sensnum=" << newSensNum << "DIFF=" << diff <<  res;
 
 
-    yError() << laser << "INPUT_A=" <<angle_input << "("<<sensNum<<")"<< "ORIGINAL_D=" << distance<< "ORIGINAL_A=" << angle << "NEW_DIST="<< newdistance << "NEW_ang=" << beta2  << "OUPUT_A="<< beta3 << "sensnum=" << newSensNum << "DIFF=" << diff <<  res;
-
-
-//     double Ax  = cos(angle)*distance;
-//     double beta = atan(By/Bx);
-//     double newdistance = Ax/cos(beta);
-//     return std::abs(newdistance);
 }
+
+
 
 bool GazeboYarpDoubleLaserDriver::getRawData(yarp::sig::Vector &out)
 {
