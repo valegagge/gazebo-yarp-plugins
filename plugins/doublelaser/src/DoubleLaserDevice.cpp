@@ -6,7 +6,7 @@
 
 #include <cstdio>
 #include <string>
-#include "DoubleLaserDriver.h"
+#include "DoubleLaserDevice.h"
 
 #include <yarp/os/LogStream.h>
 #include <yarp/os/LockGuard.h>

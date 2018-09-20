@@ -5,12 +5,10 @@
  */
 
 #include "DoubleLaser.hh"
-#include "DoubleLaserDriver.h"
+#include "DoubleLaserDevice.h"
 #include <GazeboYarpPlugins/common.h>
 #include <GazeboYarpPlugins/Handler.hh>
 #include <GazeboYarpPlugins/ConfHelpers.hh>
-
-//#include <gazebo/sensors/RaySensor.hh>
 
 #include <gazebo/physics/Model.hh>
 
@@ -124,7 +122,7 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
 
 
         // 5) Add the gazebo_doubleLaser device driver to the factory.
-        yarp::dev::Drivers::factory().add(new yarp::dev::DriverCreatorOf<yarp::dev::DoubleLaserDevice>("gazebo_doubleLaser", "Rangefinder2DWrapper", "GazeboYarpDoubleLaserDriver"));
+        yarp::dev::Drivers::factory().add(new yarp::dev::DriverCreatorOf<yarp::dev::DoubleLaserDevice>("DoubleLaser", "Rangefinder2DWrapper", "GazeboYarpDoubleLaserDriver"));
 
 
 

@@ -11,11 +11,11 @@ message("sono nel doublelaser!!")
 include(AddGazeboYarpPluginTarget)
 
 set(doubleLaser_source      src/DoubleLaser.cc
-                            src/DoubleLaserDriver.cpp
+                            src/DoubleLaserDevice.cpp
                             )
 
 set(doubleLaser_headers     include/gazebo/DoubleLaser.hh
-                            include/yarp/dev/DoubleLaserDriver.h )
+                            include/yarp/dev/DoubleLaserDevice.h )
                             
                             
 set(LIB_COMMON_NAME gazebo_yarp_lib_common)
