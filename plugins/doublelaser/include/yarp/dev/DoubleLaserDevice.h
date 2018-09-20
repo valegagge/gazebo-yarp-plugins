@@ -93,13 +93,10 @@ public:
 
 private:
 
-
     void calculate(int sensNum, double distance, bool front, int &newSensNum, double &newdistance);
     bool verifyLasersConfigurations(void);
     bool getLasersInterfaces(void);
     bool createLasersDevices(void);
-//    bool readLaserConfig(yarp::os::Searchable& config, Laser l, LaserCfg_t &lasercfg);
-
     
     yarp::dev::PolyDriver * m_driver_laserFront;
     yarp::dev::IRangefinder2D* m_dev_laserFront;

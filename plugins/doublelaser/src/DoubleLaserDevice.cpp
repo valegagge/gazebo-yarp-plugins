@@ -19,11 +19,52 @@ using namespace yarp::sig;
 using namespace yarp::dev;
 
 
-
-DoubleLaserDevice::DoubleLaserDevice():  m_inited(false), m_driver_laserFront(nullptr), m_driver_laserBack(nullptr), m_lFrontCfg(LaserCfg_t::Laser::front), m_lBackCfg(LaserCfg_t::Laser::back), m_onSimulator(true) //TODO: da cambiare!!
+bool LaserCfg_t::loadConfig(yarp::os::Searchable& config)
 {
-    yWarning () <<"....DoubleLaserDevice::sono nel costruttore...";
+    std::string key;
+    if(laser==front)
+    {key="LASERFRONT-CFG";}
+    else
+    {key="LASERBACK-CFG";}
+
+    yarp::os::Searchable& l_config = config.findGroup(key);
+    if (l_config.check("pose")==false) {yError() << "DoubleLaserDevice: missing pose"; return false; }
+    Bottle & b_pose = l_config.findGroup("pose");
+    if(b_pose.size()!= 4)
+        yError() << "DoubleLaserDevice: wrong size of pose";
+    pose.x = b_pose.get(1).asDouble();
+    pose.y = b_pose.get(2).asDouble();
+    pose.z = b_pose.get(3).asDouble();
+
+    if (l_config.check("file")==false) {yError() << "DoubleLaserDevice: missing file"; return false; }
+    Bottle & b_filename = l_config.findGroup("file");
+    fileCfgName = b_filename.get(1).asString();
+
+    if (l_config.check("sensorName")==false) {yError() << "DoubleLaserDevice: missing sensorName"; return false; }
+    Bottle & b_sensorName = l_config.findGroup("sensorName");
+    sensorName = b_sensorName.get(1).asString();
+
+
+    //DEBUG
+    yError() << key << pose.x << pose.y << pose.z << fileCfgName << sensorName;
+
+    return true;
+
 }
+
+
+DoubleLaserDevice::DoubleLaserDevice():
+    m_driver_laserFront(nullptr),
+    m_dev_laserFront(nullptr),
+    m_driver_laserBack(nullptr),
+    m_dev_laserBack(nullptr),
+    m_samples(0),
+    m_resolution(1),
+    m_inited(false),
+    m_onSimulator(true),
+    m_lFrontCfg(LaserCfg_t::Laser::front),
+    m_lBackCfg(LaserCfg_t::Laser::back)
+{;}
 
 DoubleLaserDevice::~DoubleLaserDevice() {}
 
@@ -105,73 +146,11 @@ bool DoubleLaserDevice::attachAll(const PolyDriverList &p)
     return true;
 }
 
-bool DoubleLaserDevice::detachAll()
-{;}
-
-
-
-// bool DoubleLaserDevice::readLaserConfig(yarp::os::Searchable& config, Laser l, LaserCfg_t &lasercfg)
-// {
-//     std:string key;
-//     if(l==front)
-//     {key="LASERFRONT-CFG";}
-//     else
-//     {key="LASERBACK-CFG";}
-//
-//     yarp::os::Searchable& l_config = config.findGroup(key);
-//     if (l_config.check("pose")==false) {yError() << "DoubleLaserDevice: missing pose"; return false; }
-//     Bottle & pose = l_config.findGroup("pose");
-//     if(pose.size()!= 4)
-//         yError() << "DoubleLaserDevice: wrong size of pose";
-//     lasercfg.pose.x = pose.get(1).asDouble();
-//     lasercfg.pose.y = pose.get(2).asDouble();
-//     lasercfg.pose.z = pose.get(3).asDouble();
-//
-//     if (l_config.check("file")==false) {yError() << "DoubleLaserDevice: missing file"; return false; }
-//     Bottle & filename = l_config.findGroup("file");
-//     lasercfg.fileCfgName = filename.get(1).asString();
-//
-//     if (l_config.check("sensorName")==false) {yError() << "DoubleLaserDevice: missing sensorName"; return false; }
-//     Bottle & sensorName = l_config.findGroup("sensorName");
-//     lasercfg.sensorName = filename.get(1).asString();
-//
-//     return true;
-// }
-
-
-bool LaserCfg_t::loadConfig(yarp::os::Searchable& config)
+bool DoubleLaserDevice::detachAll(void)
 {
-    std::string key;
-    if(laser==front)
-    {key="LASERFRONT-CFG";}
-    else
-    {key="LASERBACK-CFG";}
-
-    yarp::os::Searchable& l_config = config.findGroup(key);
-    if (l_config.check("pose")==false) {yError() << "DoubleLaserDevice: missing pose"; return false; }
-    Bottle & b_pose = l_config.findGroup("pose");
-    if(b_pose.size()!= 4)
-        yError() << "DoubleLaserDevice: wrong size of pose";
-    pose.x = b_pose.get(1).asDouble();
-    pose.y = b_pose.get(2).asDouble();
-    pose.z = b_pose.get(3).asDouble();
-
-    if (l_config.check("file")==false) {yError() << "DoubleLaserDevice: missing file"; return false; }
-    Bottle & b_filename = l_config.findGroup("file");
-    fileCfgName = b_filename.get(1).asString();
-
-    if (l_config.check("sensorName")==false) {yError() << "DoubleLaserDevice: missing sensorName"; return false; }
-    Bottle & b_sensorName = l_config.findGroup("sensorName");
-    sensorName = b_sensorName.get(1).asString();
-
-
-    //DEBUG
-    yError() << key << pose.x << pose.y << pose.z << fileCfgName << sensorName;
-
-    return true;
-
-
+    m_inited=false;
 }
+
 
 bool DoubleLaserDevice::createLasersDevices(void)
 {
@@ -231,12 +210,6 @@ bool DoubleLaserDevice::open(yarp::os::Searchable& config)
 {
     yarp::os::LockGuard guard(m_mutex);
 
-//     if(!readLaserConfig(config, Laser::front, m_lFrontCfg))
-//         return false;
-//
-//     if(!readLaserConfig(config, Laser::back, m_lBackCfg))
-//         return false;
-
     if(!m_lFrontCfg.loadConfig(config))
             return false;
     if(!m_lBackCfg.loadConfig(config))
@@ -265,6 +238,25 @@ bool DoubleLaserDevice::open(yarp::os::Searchable& config)
 
 bool DoubleLaserDevice::close()
 {
+    m_inited=false;
+    //if I'm on simulator I did not create subdevice
+    if(m_onSimulator)
+        return true;
+
+    if(nullptr!=m_driver_laserFront)
+    {
+        m_driver_laserFront->close();
+        delete m_dev_laserFront;
+        m_dev_laserFront=nullptr;
+    }
+
+    if(nullptr!=m_driver_laserBack)
+    {
+        m_driver_laserBack->close();
+        delete m_driver_laserBack;
+        m_driver_laserBack=nullptr;
+    }
+
     return true;
 }
 
@@ -312,11 +304,9 @@ bool DoubleLaserDevice::verifyLasersConfigurations(void)
     m_samples = (maxFront -minFront) /resolutionFront;
 
     m_resolution = resolutionFront;
-    //TODO: aggiungi qui le verifiche di uaguale configurazione dei due laser.
-    //Per ora, nelle funzioni get ritorno le info del front
 
     m_inited = true;
-    yError() << "****DoubleLaserDevice: inited: resolution=" <<  m_resolution;
+
     return true;
 
 }
@@ -526,22 +516,22 @@ void DoubleLaserDevice::calculate(int sensNum, double distance, bool front, int 
     newdistance = std::sqrt((Bx*Bx)+(By*By));
 
 
-    //------debug stuff----
-    std::string res= "==>OK";
-    if(std::abs(diff)>m_resolution)
-        res="==> change slot!!!";
-
-    std::string laser="front";
-    if(!front)
-        laser="back";
-    //yError() << laser << "ANGLE_in=" << angle_input << "ANGLE=" << angle << "BETA="<<beta  <<"BETA2=" << beta2 <<  "  angle2=" <<angle2 << "DIFF="<< diff<<  res;
-
-    double beta3 = convertAngle_hw2user(beta2);
-
-    //newSensNum=round(beta3/m_resolution); per semplificare i calcoli la calcolo cosi:
-
-    yError() << laser << "INPUT_A=" <<angle_input << "("<<sensNum<<")"<< "ORIGINAL_D=" << distance<< "ORIGINAL_A=" << hw_input_angle << "NEW_DIST="<< newdistance << "NEW_ang=" << beta2  << "OUPUT_A="<< beta3 << "sensnum=" << newSensNum << "DIFF=" << diff <<  res;
-
+//     //------debug stuff----
+//     std::string res= "==>OK";
+//     if(std::abs(diff)>m_resolution)
+//         res="==> change slot!!!";
+//
+//     std::string laser="front";
+//     if(!front)
+//         laser="back";
+//     //yError() << laser << "ANGLE_in=" << angle_input << "ANGLE=" << angle << "BETA="<<beta  <<"BETA2=" << beta2 <<  "  angle2=" <<angle2 << "DIFF="<< diff<<  res;
+//
+//     double beta3 = convertAngle_hw2user(beta2);
+//
+//     //newSensNum=round(beta3/m_resolution); per semplificare i calcoli la calcolo cosi:
+//
+//     yError() << laser << "INPUT_A=" <<angle_input << "("<<sensNum<<")"<< "ORIGINAL_D=" << distance<< "ORIGINAL_A=" << hw_input_angle << "NEW_DIST="<< newdistance << "NEW_ang=" << beta2  << "OUPUT_A="<< beta3 << "sensnum=" << newSensNum << "DIFF=" << diff <<  res;
+//
 
 }
 
