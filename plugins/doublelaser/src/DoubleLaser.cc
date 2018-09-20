@@ -124,14 +124,37 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
 
 
         // 5) Add the gazebo_doubleLaser device driver to the factory.
-        yarp::dev::Drivers::factory().add(new yarp::dev::DriverCreatorOf<yarp::dev::GazeboYarpDoubleLaserDriver>("gazebo_doubleLaser", "Rangefinder2DWrapper", "GazeboYarpDoubleLaserDriver"));
+        yarp::dev::Drivers::factory().add(new yarp::dev::DriverCreatorOf<yarp::dev::DoubleLaserDevice>("gazebo_doubleLaser", "Rangefinder2DWrapper", "GazeboYarpDoubleLaserDriver"));
 
 
-        //TODO: I removed the parser of  [ROS] group. Do I need it?
 
+        yError()<< "LOAD parameters-----------------------------------------------";
+        yError() << m_parameters.toString();
+        yError() << "-------------------------------------------------------------";
 
         //6) open wrapper Rangefinder2DWrapper
-        if(! m_wrapper_rangeFinder.open(m_parameters))
+        yarp::os::Property wrapper_parameters;
+        if(!m_parameters.check("WRAPPER"))
+        {
+            yError() << "GazeboYarpDoubleLaser: [WRAPPER] group is missing in configuration file";
+            return;
+        }
+        wrapper_parameters.fromString(m_parameters.findGroup("WRAPPER").toString());
+        if(m_parameters.check("ROS"))
+        {
+            wrapper_parameters.addGroup("ROS").fromString(m_parameters.findGroup("ROS").toString());
+        }
+        else
+        {
+            yInfo() << "GazeboYarpDoubleLaser: ROS group is missing in configuration file";
+        }
+
+
+        yError()<< "WRAPPER parameters-----------------------------------------------";
+        yError() << wrapper_parameters.toString();
+        yError() << "-------------------------------------------------------------";
+
+        if(! m_wrapper_rangeFinder.open(wrapper_parameters))
         {
             yError()<<"GazeboYarpDoubleLaser failed: error in opening yarp driver wrapper Rangefinder2DWrapper!!!";
             return;
@@ -152,41 +175,35 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
 //              yError() << "GazeboYarpDoubleLaser : ho ho fatto la view di Rangefinder2DWrapper ";
 //         }
 
-         //7) look for the laser front and back in in yarp drivers set
-        yarp::dev::PolyDriverDescriptor laser1, laser2;
-        std::string scopedDeviceName_laser1 = "base_laser";
-        std::string scopedDeviceName_laser2 = "base_laser2";
-//         laser1.poly = GazeboYarpPlugins::Handler::getHandler()->getDevice(scopedDeviceName_laser1);
-//         if(laser1.poly == nullptr)
-//         {
-//             yError()<<"GazeboYarpDoubleLaser: non trovo laser1";
-//             return;
-//         }
-//         laser2.poly = GazeboYarpPlugins::Handler::getHandler()->getDevice(scopedDeviceName_laser2);
-//         if(laser2.poly == nullptr)
-//         {
-//             yError()<<"GazeboYarpDoubleLaser: non trovo laser2";
-//             return;
-//         }
-//
-//
-//          yError()<<"GazeboYarpDoubleLaser: ho trovato tutti e due i laser!! OK";
-//
-//          //GazeboYarpPlugins::Handler::getHandler()->setDevice("laser_sensor", laser1.poly); sono gia stati aggiunti ..credo..
-//          m_lasers.push(laser1);
-//
-//          //GazeboYarpPlugins::Handler::getHandler()->setDevice("laser_sensor2", laser2.poly); sono gia stati aggiunti ..credo..
-//          m_lasers.push(laser2);
-        
-        
-        
+
         // 8) Open the driver DoubleLaser
-         yError() << "GazeboYarpDoubleLaser : sto per aprire il device doublelaser..... ";
-        ::yarp::os::Property driver_properties;
-        driver_properties.put("device","gazebo_doubleLaser");
-        driver_properties.put("laserFront",scopedDeviceName_laser1);
-        driver_properties.put("laserBack",scopedDeviceName_laser2);
-        if( m_driver_doublelaser.open(driver_properties) ) 
+        yError() << "GazeboYarpDoubleLaser : sto per aprire il device doublelaser..... ";
+
+
+        yarp::os::Property doublelaser_dev_parameters;
+        if(!m_parameters.check("DEVICE-CFG"))
+        {
+            yError() << "GazeboYarpDoubleLaser: [DEVICE-CFG] group is missing in configuration file";
+            return;
+        }
+        doublelaser_dev_parameters.fromString(m_parameters.findGroup("DEVICE-CFG").toString());
+
+        if(!m_parameters.check("LASERFRONT-CFG"))
+        {
+            yError() << "GazeboYarpDoubleLaser: LASERFRONT-CFG group is missing in configuration file";
+            return;
+        }
+
+        doublelaser_dev_parameters.addGroup("LASERFRONT-CFG").fromString(m_parameters.findGroup("LASERFRONT-CFG").toString());
+
+        if(!m_parameters.check("LASERBACK-CFG"))
+        {
+            yError() << "GazeboYarpDoubleLaser: LASERBACK-CFG group is missing in configuration file";
+            return;
+        }
+        doublelaser_dev_parameters.addGroup("LASERBACK-CFG").fromString(m_parameters.findGroup("LASERBACK-CFG").toString());
+
+        if( m_driver_doublelaser.open(doublelaser_dev_parameters) )
         {
         
             yError() << "GazeboYarpDoubleLaser : ho aperto il driver doubleLaser ";
@@ -198,29 +215,75 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
         }
         
 
-//         if (!m_driver_doublelaser.view(m_iWrap_doublelaser))
+        // 9 )finds device of laser front and laser back. the device names are written in configuration .ini file
+        yarp::os::Bottle &front_name = m_parameters.findGroup("LASERFRONT-CFG").findGroup("sensorName");
+        if(front_name.isNull())
+        {
+            yError() << "GazeboYarpDoubleLaser: cannot find LASERFRONT-CFG.sensorName parameter";
+            return;
+        }
+         yarp::os::Bottle &back_name = m_parameters.findGroup("LASERBACK-CFG").findGroup("sensorName");
+        if(back_name.isNull())
+        {
+            yError() << "GazeboYarpDoubleLaser: cannot find LASERBACK-CFG.sensorName parameter";
+            return;
+        }
+
+
+        std::string laserFront_name = front_name.find("sensorName").asString();
+        std::string laserBack_name = back_name.find("sensorName").asString();
+       // yError() << "GazeboYarpDoubleLaser: laserFront=" <<  laserFront_name <<" laserBack=" << laserBack_name ;
+
+
+        m_driver_laserFront = GazeboYarpPlugins::Handler::getHandler()->getDevice(laserFront_name);
+        if(m_driver_laserFront == nullptr)
+        {
+            yError() << "GazeboYarpDoubleLaser: cannot find laserFront device";
+            return;
+        }
+//         else
 //         {
-//             yError("GazeboYarpDoubleLaser : doublelaser device's wrapper interface not found, load failed.");
-//             return;
+//             yError() << "****GazeboYarpDoubleLaser: finded laserFront device. OK";
 //         }
 
-         yError("GazeboYarpDoubleLaser : ho fatto la view doublelaser.");
-
-//          if(m_iWrap_doublelaser->attachAll(m_lasers))
-//          {
-//              yError("GazeboYarpDoubleLaser : ho fatto attach a tutti i laserOK.");
-//          }
-//          else
-//          {
-//              yError("GazeboYarpDoubleLaser : ERRORE mentre facevo attach a tutti i laser.");
-//              return;
-//          }
 
 
 
+        m_driver_laserBack = GazeboYarpPlugins::Handler::getHandler()->getDevice(laserBack_name);
+        if(m_driver_laserBack == nullptr)
+        {
+            yError() << "GazeboYarpDoubleLaser: cannot find laserBack device";
+            return;
+        }
+//         else
+//         {
+//             yError() << "****GazeboYarpDoubleLaser: finded laserBack device. OK";
+//         }
 
-        
-        // 9 )attach rangefinder wrapper to double laser
+
+
+        yarp::dev::PolyDriverList listoflasers; //it will contain front and back lasera
+        yarp::dev::PolyDriverDescriptor laserFront_desc;
+        yarp::dev::PolyDriverDescriptor laserBack_desc;
+
+        laserFront_desc.poly = m_driver_laserFront;
+        laserFront_desc.key = laserFront_name;
+        listoflasers.push(laserFront_desc);
+
+        laserBack_desc.poly = m_driver_laserBack;
+        laserBack_desc.key = laserBack_name;
+        listoflasers.push(laserBack_desc);
+
+        m_driver_doublelaser.view(m_iWrap_doublelaser);
+        if(!m_iWrap_doublelaser->attachAll(listoflasers))
+        {
+            yError() << "GazeboYarpDoubleLaser: error douring attaching double laser to front and back laser devices";
+            //TODO: chiudi il devicedouble
+            return;
+        }
+
+
+        // 10 )attach rangefinder wrapper to double laser
         yarp::dev::PolyDriverList listofdoubellaser; //it will contain only double laser
         yarp::dev::PolyDriverDescriptor doublelaser_desc;
         doublelaser_desc.poly = &m_driver_doublelaser;

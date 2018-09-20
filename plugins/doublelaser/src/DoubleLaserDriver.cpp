@@ -5,16 +5,12 @@
  */
 
 #include <cstdio>
+#include <string>
 #include "DoubleLaserDriver.h"
-#include <GazeboYarpPlugins/common.h>
-#include <GazeboYarpPlugins/Handler.hh>
-
-#include <gazebo/sensors/sensors.hh>
-#include <gazebo/common/Events.hh>
-
 
 #include <yarp/os/LogStream.h>
 #include <yarp/os/LockGuard.h>
+#include <yarp/os/ResourceFinder.h>
 #include <math.h>
 #include <cmath>
 
@@ -23,252 +19,292 @@ using namespace yarp::sig;
 using namespace yarp::dev;
 
 
-GazeboYarpDoubleLaserDriver::GazeboYarpDoubleLaserDriver() : m_deviceName(""), m_inited(false), m_onSimulation(true) //TODO: da cambiare!!
+
+DoubleLaserDevice::DoubleLaserDevice():  m_inited(false), m_driver_laserFront(nullptr), m_driver_laserBack(nullptr), m_lFrontCfg(LaserCfg_t::Laser::front), m_lBackCfg(LaserCfg_t::Laser::back), m_onSimulator(true) //TODO: da cambiare!!
 {
-    yWarning () <<"....GazeboYarpDoubleLaserDriver::sono nel costruttore...";
+    yWarning () <<"....DoubleLaserDevice::sono nel costruttore...";
 }
 
-GazeboYarpDoubleLaserDriver::~GazeboYarpDoubleLaserDriver() {}
+DoubleLaserDevice::~DoubleLaserDevice() {}
 
-
-void GazeboYarpDoubleLaserDriver::onUpdate(const gazebo::common::UpdateInfo& _info)
+bool DoubleLaserDevice::getLasersInterfaces(void)
 {
-
-}
-
-void GazeboYarpDoubleLaserDriver::onReset()
-{
-}
-
-
-// bool GazeboYarpDoubleLaserDriver::attachAll(const PolyDriverList &p)
-// {
-//     if(p.size()!=2)
-//     {
-//         yError() << "GazeboYarpDoubleLaserDriver attach whin wrong num of drivers";
-//     }
-//  //here I suppose that first polydriver is the front laser, while the second the back laser
-//     m_driver_laserFront = p[0]->poly;
-//     m_driver_laserBack = p[1]->poly;
-//
-//
-//
-//     if(m_driver_laserFront == nullptr)
-//     {
-//         yError() << "GazeboYarpDoubleLaserDriver: cannot find laserFront device";
-//         return false;
-//     }
-//         else
-//     {
-//         yError() << "****GazeboYarpDoubleLaserDriver: finded laserFront device. OK";
-//     }
-//
-//
-//     if(!m_driver_laserFront->view(m_dev_laserFront))
-//     {
-//         yError() << "GazeboYarpDoubleLaserDriver: cannot get interface of laser front";
-//         return false;
-//     }
-//     else
-//     {
-//         yError() << "****GazeboYarpDoubleLaserDriver: get interface of laser front. OK";
-//     }
-//
-//     if(m_driver_laserBack == nullptr)
-//     {
-//         yError() << "GazeboYarpDoubleLaserDriver: cannot find laserBack device";
-//         return false;
-//     }
-//     else
-//     {
-//         yError() << "****GazeboYarpDoubleLaserDriver: finded laserBack device. OK";
-//     }
-//
-//     if(!m_driver_laserBack->view(m_dev_laserBack))
-//     {
-//         yError() << "GazeboYarpDoubleLaserDriver: cannot get interface of laser Back";
-//         return false;
-//     }
-//     else
-//     {
-//         yError() << "****GazeboYarpDoubleLaserDriver: get interface of laser Back. OK";
-//     }
-//
-//     init();
-//     return true;
-// }
-// bool GazeboYarpDoubleLaserDriver::detachAll()
-// {;}
-
-
-bool GazeboYarpDoubleLaserDriver::getLasersFromGazebo(yarp::os::Searchable& config)
-{
-
-    if(!config.check("laserFront"))
-    {
-        yError() << "GazeboYarpDoubleLaserDriver: cannot find laser1 parameter";
-        return false;
-    }
-
-    if(!config.check("laserBack"))
-    {
-        yError() << "GazeboYarpDoubleLaserDriver: cannot find laser2 parameter";
-        return false;
-    }
-
-
-    std::string laserFront_name= config.find("laserFront").asString();
-    std::string laserBack_name= config.find("laserBack").asString();
-    yError() << "GazeboYarpDoubleLaserDriver: laserFront=" <<  laserFront_name <<" laserBack=" << laserBack_name ;
-
-
-    m_driver_laserFront = GazeboYarpPlugins::Handler::getHandler()->getDevice(laserFront_name);
     if(m_driver_laserFront == nullptr)
     {
-        yError() << "GazeboYarpDoubleLaserDriver: cannot find laserFront device";
-        return false;
-    }
-        else
-    {
-        yError() << "****GazeboYarpDoubleLaserDriver: finded laserFront device. OK";
-    }
-
-
-
-
-    m_driver_laserBack = GazeboYarpPlugins::Handler::getHandler()->getDevice(laserBack_name);
-    if(m_driver_laserBack == nullptr)
-    {
-        yError() << "GazeboYarpDoubleLaserDriver: cannot find laserBack device";
+        yError() << "DoubleLaserDevice: cannot find laserFront device";
         return false;
     }
     else
     {
-        yError() << "****GazeboYarpDoubleLaserDriver: finded laserBack device. OK";
+        yError() << "****DoubleLaserDevice: finded laserFront device. OK";
+    }
+
+    if(m_driver_laserBack == nullptr)
+    {
+        yError() << "DoubleLaserDevice: cannot find laserBack device";
+        return false;
+    }
+    else
+    {
+        yError() << "****DoubleLaserDevice: finded laserBack device. OK";
+    }
+
+    if(!m_driver_laserFront->view(m_dev_laserFront))
+    {
+        yError() << "DoubleLaserDevice: cannot get interface of laser front";
+        return false;
+    }
+    else
+    {
+        yError() << "****DoubleLaserDevice: get interface of laser front. OK";
     }
 
 
-//     //MI SERVER IL PARENT SENSOR???
-//     m_parentSensor = dynamic_cast<gazebo::sensors::RaySensor*>(GazeboYarpPlugins::Handler::getHandler()->getSensor(sensorScopedName));
-//     m_started = true;
-//
-//     if (!m_parentSensor)
-//     {
-//         yError() << "Error, sensor" <<  sensorScopedName << "was not found" ;
-//         return  false ;
-//     }
-//
+
+    if(!m_driver_laserBack->view(m_dev_laserBack))
+    {
+        yError() << "DoubleLaserDevice: cannot get interface of laser Back";
+        return false;
+    }
+    else
+    {
+        yError() << "****DoubleLaserDevice: get interface of laser Back. OK";
+    }
 
     return true;
 }
 
+bool DoubleLaserDevice::attachAll(const PolyDriverList &p)
+{
+    if(p.size()!=2)
+    {
+        yError() << "DoubleLaserDevice attach whin wrong num of drivers";
+        return false;
+    }
 
-bool GazeboYarpDoubleLaserDriver::open(yarp::os::Searchable& config)
+    for(int i=0; i< p.size(); i++)
+    {
+        if(p[i]->key == m_lFrontCfg.sensorName)
+            m_driver_laserFront = p[i]->poly;
+        else if(p[i]->key == m_lBackCfg.sensorName)
+            m_driver_laserBack = p[i]->poly;
+        else
+        {
+             yError() << "DoubleLaserDevice::attach: the driver called" << p[i]->key << "not belong to my configuration";
+             return false;
+        }
+    }
+
+
+   if(!getLasersInterfaces())
+        return false;
+
+    if(!verifyLasersConfigurations())
+        return false;
+
+    return true;
+}
+
+bool DoubleLaserDevice::detachAll()
+{;}
+
+
+
+// bool DoubleLaserDevice::readLaserConfig(yarp::os::Searchable& config, Laser l, LaserCfg_t &lasercfg)
+// {
+//     std:string key;
+//     if(l==front)
+//     {key="LASERFRONT-CFG";}
+//     else
+//     {key="LASERBACK-CFG";}
+//
+//     yarp::os::Searchable& l_config = config.findGroup(key);
+//     if (l_config.check("pose")==false) {yError() << "DoubleLaserDevice: missing pose"; return false; }
+//     Bottle & pose = l_config.findGroup("pose");
+//     if(pose.size()!= 4)
+//         yError() << "DoubleLaserDevice: wrong size of pose";
+//     lasercfg.pose.x = pose.get(1).asDouble();
+//     lasercfg.pose.y = pose.get(2).asDouble();
+//     lasercfg.pose.z = pose.get(3).asDouble();
+//
+//     if (l_config.check("file")==false) {yError() << "DoubleLaserDevice: missing file"; return false; }
+//     Bottle & filename = l_config.findGroup("file");
+//     lasercfg.fileCfgName = filename.get(1).asString();
+//
+//     if (l_config.check("sensorName")==false) {yError() << "DoubleLaserDevice: missing sensorName"; return false; }
+//     Bottle & sensorName = l_config.findGroup("sensorName");
+//     lasercfg.sensorName = filename.get(1).asString();
+//
+//     return true;
+// }
+
+
+bool LaserCfg_t::loadConfig(yarp::os::Searchable& config)
+{
+    std::string key;
+    if(laser==front)
+    {key="LASERFRONT-CFG";}
+    else
+    {key="LASERBACK-CFG";}
+
+    yarp::os::Searchable& l_config = config.findGroup(key);
+    if (l_config.check("pose")==false) {yError() << "DoubleLaserDevice: missing pose"; return false; }
+    Bottle & b_pose = l_config.findGroup("pose");
+    if(b_pose.size()!= 4)
+        yError() << "DoubleLaserDevice: wrong size of pose";
+    pose.x = b_pose.get(1).asDouble();
+    pose.y = b_pose.get(2).asDouble();
+    pose.z = b_pose.get(3).asDouble();
+
+    if (l_config.check("file")==false) {yError() << "DoubleLaserDevice: missing file"; return false; }
+    Bottle & b_filename = l_config.findGroup("file");
+    fileCfgName = b_filename.get(1).asString();
+
+    if (l_config.check("sensorName")==false) {yError() << "DoubleLaserDevice: missing sensorName"; return false; }
+    Bottle & b_sensorName = l_config.findGroup("sensorName");
+    sensorName = b_sensorName.get(1).asString();
+
+
+    //DEBUG
+    yError() << key << pose.x << pose.y << pose.z << fileCfgName << sensorName;
+
+    return true;
+
+
+}
+
+bool DoubleLaserDevice::createLasersDevices(void)
+{
+    ResourceFinder rf;
+
+    Property laserF_prop;
+    if(!laserF_prop.fromConfigFile(rf.findFileByName(m_lFrontCfg.fileCfgName)))
+    {
+        yError() << "DoubleLaserDevice: cannot load file " << m_lFrontCfg.fileCfgName;
+        return false;
+    }
+
+    m_driver_laserFront = new PolyDriver(laserF_prop);
+    if(m_driver_laserFront == nullptr)
+    {
+        yError() << "DoubleLaserDevice: cannot cannot create device for laser front";
+        return false;
+    }
+
+
+    Property laserB_prop;
+    if(!laserB_prop.fromConfigFile(rf.findFileByName(m_lBackCfg.fileCfgName)))
+    {
+        yError() << "DoubleLaserDevice: cannot load file " << m_lBackCfg.fileCfgName;
+        return false;
+    }
+
+    m_driver_laserBack = new PolyDriver(laserB_prop);
+    if(m_driver_laserBack == nullptr)
+    {
+        yError() << "DoubleLaserDevice: cannot cannot create device for laser back";
+        return false;
+    }
+
+    if(!m_driver_laserFront->open(laserF_prop))
+    {
+        yError() << "DoubleLaserDevice: cannot open laser Front";
+        return false;
+    }
+    yError() << "DoubleLaserDevice: cannot opened laser Front! OK";
+
+    if(!m_driver_laserBack->open(laserB_prop))
+    {
+        yError() << "DoubleLaserDevice: cannot open laser Back";
+        return false;
+    }
+    yError() << "DoubleLaserDevice:  opened laser Back! OK";
+
+    if(!getLasersInterfaces())
+        return false;
+
+    m_inited=true;
+    return true;
+}
+
+bool DoubleLaserDevice::open(yarp::os::Searchable& config)
 {
     yarp::os::LockGuard guard(m_mutex);
 
-    if(m_onSimulation)
-    {
-        if(!getLasersFromGazebo(config))
+//     if(!readLaserConfig(config, Laser::front, m_lFrontCfg))
+//         return false;
+//
+//     if(!readLaserConfig(config, Laser::back, m_lBackCfg))
+//         return false;
+
+    if(!m_lFrontCfg.loadConfig(config))
             return false;
+    if(!m_lBackCfg.loadConfig(config))
+        return false;
 
-        //Connect the driver to the gazebo simulation
-        this->m_updateConnection = gazebo::event::Events::ConnectWorldUpdateBegin(boost::bind(&GazeboYarpDoubleLaserDriver::onUpdate, this, _1));
-
-        //DEVO AGGIUNGERLO???
-        // Connect the onReset method to the WorldReset event callback
-        this->m_resetConnection =
-        gazebo::event::Events::ConnectWorldReset(boost::bind(&GazeboYarpDoubleLaserDriver::onReset, this));
-
+    //currently if z values differs, than return error
+    if(m_lFrontCfg.pose.z != m_lBackCfg.pose.z)
+    {
+        yError() << "DoubleLaserDevice: poses of laser front and back have differnt z values";
+        return false;
     }
+
+    if (config.check("subdevice"))
+        m_onSimulator=false;
     else
+        m_onSimulator=true; //than I need that gazebo calls my attach function
+
+    bool ret = true;
+    //If I'm on robot I need to create the device of both lasers, while I'm onSimulator I need to wait the attach of gazebo.
+    if(false==m_onSimulator)
     {
-        //TODO: add code to opens rpLidar devices. Currently return false
-        return false;
+        ret = createLasersDevices();
     }
-
-
-
-    
-    if(!m_driver_laserFront->view(m_dev_laserFront))
-    {
-        yError() << "GazeboYarpDoubleLaserDriver: cannot get interface of laser front";
-        return false;
-    }
-    else
-    {
-        yError() << "****GazeboYarpDoubleLaserDriver: get interface of laser front. OK";
-    }
-    
-
-
-
-    
-    if(!m_driver_laserBack->view(m_dev_laserBack))
-    {
-        yError() << "GazeboYarpDoubleLaserDriver: cannot get interface of laser Back";
-        return false;
-    }
-    else
-    {
-        yError() << "****GazeboYarpDoubleLaserDriver: get interface of laser Back. OK";
-    }
-
-    
-    if(!init())
-        return false;
-
-     //AGGIUNGI QUI ROBA PER LEGGERE LA CONFIGURAZIONE DEI LASER!
-    yError() << "****GazeboYarpDoubleLaserDriver: ora dovrei leggere la configurazione!!!! OK";
-
-    return true;
-    
+    return ret;
 }
 
-bool GazeboYarpDoubleLaserDriver::close()
+bool DoubleLaserDevice::close()
 {
-    this->m_updateConnection.reset();
     return true;
 }
 
-bool GazeboYarpDoubleLaserDriver::init(void )
+bool DoubleLaserDevice::verifyLasersConfigurations(void)
 {
-
     double minFront, maxFront, minBack, maxBack;
     if(!m_dev_laserFront->getScanLimits(minFront, maxFront))
     {
-        yError() << "GazeboYarpDoubleLaserDriver: error getting scan limits for front laser";
+        yError() << "DoubleLaserDevice: error getting scan limits for front laser";
         return false;
     }
 
     if(!m_dev_laserBack->getScanLimits(minBack, maxBack))
     {
-        yError() << "GazeboYarpDoubleLaserDriver: error getting scan limits for back laser";
+        yError() << "DoubleLaserDevice: error getting scan limits for back laser";
         return false;
     }
 
     if( (minFront != minBack) || (maxFront != maxBack) )
     {
-        yError() << "GazeboYarpDoubleLaserDriver: front and back laser differ in scan limits";
+        yError() << "DoubleLaserDevice: front and back laser differ in scan limits";
         return false;
     }
 
     double resolutionFront, resolutionBack;
     if(!m_dev_laserFront->getHorizontalResolution(resolutionFront))
     {
-        yError() << "GazeboYarpDoubleLaserDriver: error getting resolution for front laser";
+        yError() << "DoubleLaserDevice: error getting resolution for front laser";
         return false;
     }
 
     if(!m_dev_laserBack->getHorizontalResolution(resolutionBack))
     {
-        yError() << "GazeboYarpDoubleLaserDriver: error getting resolution for back laser";
+        yError() << "DoubleLaserDevice: error getting resolution for back laser";
         return false;
     }
 
     if(resolutionFront != resolutionBack)
     {
-        yError() << "GazeboYarpDoubleLaserDriver: front and back laser differ in resolution";
+        yError() << "DoubleLaserDevice: front and back laser differ in resolution";
         return false;
     }
 
@@ -280,12 +316,12 @@ bool GazeboYarpDoubleLaserDriver::init(void )
     //Per ora, nelle funzioni get ritorno le info del front
 
     m_inited = true;
-    yError() << "****GazeboYarpDoubleLaserDriver: inited: resolution=" <<  m_resolution;
+    yError() << "****DoubleLaserDevice: inited: resolution=" <<  m_resolution;
     return true;
 
 }
 
-bool GazeboYarpDoubleLaserDriver::getDistanceRange(double& min, double& max)
+bool DoubleLaserDevice::getDistanceRange(double& min, double& max)
 {
     yarp::os::LockGuard guard(m_mutex);
     if(!m_inited)
@@ -293,14 +329,27 @@ bool GazeboYarpDoubleLaserDriver::getDistanceRange(double& min, double& max)
     return m_dev_laserFront->getDistanceRange(min, max);
 }
 
-bool GazeboYarpDoubleLaserDriver::setDistanceRange(double min, double max)
+bool DoubleLaserDevice::setDistanceRange(double min, double max)
 {
     yarp::os::LockGuard guard(m_mutex);
-    yWarning("setDistanceRange not yet implemented");
-    return false;
+    if(!m_inited)
+        return false;
+    double curmin, curmax;
+    if(!m_dev_laserFront->getDistanceRange(curmin, curmax))
+        return false;
+
+    if(!m_dev_laserFront->setDistanceRange(min, max))
+        return false;
+
+    if(!m_dev_laserBack->setDistanceRange(min,max))
+    {
+        m_dev_laserFront->setDistanceRange(curmin, curmax);
+        return false;
+    }
+    return true;
 }
 
-bool GazeboYarpDoubleLaserDriver::getScanLimits(double& min, double& max)
+bool DoubleLaserDevice::getScanLimits(double& min, double& max)
 {
     yarp::os::LockGuard guard(m_mutex);
     if(!m_inited)
@@ -309,14 +358,28 @@ bool GazeboYarpDoubleLaserDriver::getScanLimits(double& min, double& max)
     return true;
 }
 
-bool GazeboYarpDoubleLaserDriver::setScanLimits(double min, double max)
+bool DoubleLaserDevice::setScanLimits(double min, double max)
 {
     yarp::os::LockGuard guard(m_mutex);
-    yWarning("setScanLimits not yet implemented");
-    return false;
+    if(!m_inited)
+        return false;
+
+    double curmin, curmax;
+    if(!m_dev_laserFront->getScanLimits(curmin, curmax))
+        return false;
+
+    if(!m_dev_laserFront->setScanLimits(min, max))
+        return false;
+
+    if(!m_dev_laserBack->setScanLimits(min,max))
+    {
+        m_dev_laserFront->setScanLimits(curmin, curmax);
+        return false;
+    }
+    return true;
 }
 
-bool GazeboYarpDoubleLaserDriver::getHorizontalResolution(double& step)
+bool DoubleLaserDevice::getHorizontalResolution(double& step)
 {
     yarp::os::LockGuard guard(m_mutex);
     if(!m_inited)
@@ -324,25 +387,56 @@ bool GazeboYarpDoubleLaserDriver::getHorizontalResolution(double& step)
     return m_dev_laserFront->getHorizontalResolution(step);
 }
 
-bool GazeboYarpDoubleLaserDriver::setHorizontalResolution(double step)
+bool DoubleLaserDevice::setHorizontalResolution(double step)
 {
     yarp::os::LockGuard guard(m_mutex);
-    yWarning("setHorizontalResolution not yet implemented");
-    return false;
-}
+    if(!m_inited)
+        return false;
 
-bool GazeboYarpDoubleLaserDriver::getScanRate(double& rate)
-{
-    yarp::os::LockGuard guard(m_mutex);
-    yWarning("getScanRate not yet implemented");
+    double curstep;
+    if(!m_dev_laserFront->getHorizontalResolution(curstep))
+        return false;
+
+    if(!m_dev_laserFront->setHorizontalResolution(step))
+        return false;
+
+    if(!m_dev_laserBack->setHorizontalResolution(step))
+    {
+        m_dev_laserFront->setHorizontalResolution(curstep);
+        return false;
+    }
     return true;
 }
 
-bool GazeboYarpDoubleLaserDriver::setScanRate(double rate)
+bool DoubleLaserDevice::getScanRate(double& rate)
 {
     yarp::os::LockGuard guard(m_mutex);
-    yWarning("setScanRate not yet implemented");
-    return false;
+    if(!m_inited)
+        return false;
+
+    return (m_dev_laserFront->getScanRate(rate));
+
+}
+
+bool DoubleLaserDevice::setScanRate(double rate)
+{
+   yarp::os::LockGuard guard(m_mutex);
+    if(!m_inited)
+        return false;
+
+    double currate;
+    if(!m_dev_laserFront->getScanRate(currate))
+        return false;
+
+    if(!m_dev_laserFront->setScanRate(rate))
+        return false;
+
+    if(!m_dev_laserBack->setScanRate(rate))
+    {
+        m_dev_laserFront->setScanRate(currate);
+        return false;
+    }
+    return true;
 }
 
 #define PI 3.14159265
@@ -363,19 +457,19 @@ static double convertAngle_hw2user(double hwAngle)
     return userAngle;
 }
 
-static double convertAngle_degree2rad(double angle)
+static inline double convertAngle_degree2rad(double angle)
 {
     return angle*PI/180.0;
 }
 
 
-static double convertAngle_rad2degree(double angle)
+static inline double convertAngle_rad2degree(double angle)
 {
     return angle*180.0/PI;
 }
 
 
-void GazeboYarpDoubleLaserDriver::calculate(int sensNum, double distance, bool front, int &newSensNum, double &newdistance)
+void DoubleLaserDevice::calculate(int sensNum, double distance, bool front, int &newSensNum, double &newdistance)
 {
     //calculate the input angle in degree
     double angle_input = (sensNum*m_resolution);
@@ -388,20 +482,23 @@ void GazeboYarpDoubleLaserDriver::calculate(int sensNum, double distance, bool f
     double Ay = std::abs(sin(angle_rad)*distance);
     double Ax = std::abs(cos(angle_rad)*distance);
 
-    //calculate vertical and horizontal components of new angle with offset. the translation is only on y componet.
-    double By, Bx = Ax;
+    //calculate vertical and horizontal components of new angle with offset.
+    //Note: sum laserpose.x to Ay is not an error! its dipend on the orienattion of axis.
+    //I'm not sure about the use of abs in  std::abs(m_laserFrontPose.y). to be tested.
+    double By, Bx;
     if(front)
     {
-        By = Ay + 0.07;
+        By = Ay + std::abs(m_lFrontCfg.pose.x);
+        Bx = Ax + std::abs(m_lFrontCfg.pose.y);
     }
     else
     {
-        By = Ay  + 0.085;
+        By = Ay + std::abs(m_lBackCfg.pose.x);
+        Bx = Ax + std::abs(m_lBackCfg.pose.y);
     }
 
     double betarad = atan(By/Bx);
     double beta = convertAngle_rad2degree(betarad);
-    double angle2;
 
     //atan has codominio = (-PI/2 , PI/2), but since the input is only >0 than the atan output is in (0, PI/2).
     //Now I need to normalize the angle according to the input angle.
@@ -423,7 +520,7 @@ void GazeboYarpDoubleLaserDriver::calculate(int sensNum, double distance, bool f
     if(newSensNum>=m_samples)
     {
         newSensNum = newSensNum-m_samples;
-        yError() << "GazeboYarpDoubleLaserDriver::calculate...something stange has been happened";
+        yError() << "DoubleLaserDevice::calculate...something stange has been happened";
     }
 
     newdistance = std::sqrt((Bx*Bx)+(By*By));
@@ -450,7 +547,7 @@ void GazeboYarpDoubleLaserDriver::calculate(int sensNum, double distance, bool f
 
 
 
-bool GazeboYarpDoubleLaserDriver::getRawData(yarp::sig::Vector &out)
+bool DoubleLaserDevice::getRawData(yarp::sig::Vector &out)
 {
     yarp::os::LockGuard guard(m_mutex);
 
@@ -485,7 +582,7 @@ bool GazeboYarpDoubleLaserDriver::getRawData(yarp::sig::Vector &out)
     return true;
 }
 
-bool GazeboYarpDoubleLaserDriver::getLaserMeasurement(std::vector<LaserMeasurementData> &data)
+bool DoubleLaserDevice::getLaserMeasurement(std::vector<LaserMeasurementData> &data)
 {
     yarp::os::LockGuard guard(m_mutex);
     
@@ -517,7 +614,8 @@ bool GazeboYarpDoubleLaserDriver::getLaserMeasurement(std::vector<LaserMeasureme
 
     return true;
 }
-bool GazeboYarpDoubleLaserDriver::getDeviceStatus(Device_status &status)
+
+bool DoubleLaserDevice::getDeviceStatus(Device_status &status)
 {
     yarp::os::LockGuard guard(m_mutex);
     if(!m_inited)
@@ -532,14 +630,14 @@ bool GazeboYarpDoubleLaserDriver::getDeviceStatus(Device_status &status)
     else
     {
         //TODO
-        yError() << "GazeboYarpDoubleLaserDriver: the status of laser front (" << statusFront << ") differs from the status of laser back (" << statusBack << ")";
+        yError() << "DoubleLaserDevice: the status of laser front (" << statusFront << ") differs from the status of laser back (" << statusBack << ")";
         return false;
     }
 
     return true;
 }
 
-bool GazeboYarpDoubleLaserDriver::getDeviceInfo (std::string &device_info)
+bool DoubleLaserDevice::getDeviceInfo (std::string &device_info)
 {
     yarp::os::LockGuard guard(m_mutex);
     return true;

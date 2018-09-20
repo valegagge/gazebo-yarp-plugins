@@ -54,8 +54,8 @@ private:
     
     
     //yarp::dev::PolyDriverList m_doublelaser; //in this list there is only the doublelaser device
-    yarp::dev::PolyDriver m_driver_doublelaser;
-    yarp::dev::IMultipleWrapper* m_iWrap_doublelaser; //the wrapper interface of doublelaser
+     yarp::dev::PolyDriver m_driver_doublelaser;
+     yarp::dev::IMultipleWrapper* m_iWrap_doublelaser; //the wrapper interface of doublelaser
     
     
     yarp::dev::PolyDriverList m_lasers;// the contains the pointer two laser (front and back)
@@ -63,6 +63,9 @@ private:
     yarp::os::Property m_parameters;
 
     std::string m_sensorName;
+
+    yarp::dev::PolyDriver * m_driver_laserFront;
+    yarp::dev::PolyDriver * m_driver_laserBack;
 };
 
 }

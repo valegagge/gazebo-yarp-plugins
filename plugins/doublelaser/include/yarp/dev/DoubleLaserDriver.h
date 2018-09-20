@@ -4,8 +4,8 @@
  * CopyPolicy: Released under the terms of the LGPLv2.1 or any later version, see LGPL.TXT or LGPL3.TXT
  */
 
-#ifndef GAZEBOYARP_DOUBLELASERDRIVER_HH
-#define GAZEBOYARP_DOUBLELASERDRIVER_HH
+#ifndef DOUBLELASERDEVICE_HH
+#define DOUBLELASERDEVICE_HH
 
 #include <yarp/os/Property.h>
 #include <yarp/dev/Drivers.h>
@@ -20,8 +20,6 @@
 #include <boost/shared_ptr.hpp>
 
 
-#include <gazebo/common/Time.hh>
-#include <gazebo/common/Plugin.hh>
 
 #include <string>
 #include <functional>
@@ -32,54 +30,42 @@
 
 namespace yarp {
     namespace dev {
-        class GazeboYarpDoubleLaserDriver;
+        class DoubleLaserDevice;
         };
     }
 
-namespace gazebo {
-    namespace common {
-        class UpdateInfo;
-    }
+struct Point3d_t
+{
+    double x;
+    double y;
+    double z;
+};
 
-    namespace physics {
-        class Model;
-        class Joint;
-        typedef boost::shared_ptr<Joint> JointPtr;
-    }
+class LaserCfg_t
+{
+public:
+    enum Laser{front=0, back=1};
+    Laser laser;
+    Point3d_t pose;
+    std::string fileCfgName;
+    std::string sensorName;
+    std::string typeOfDevice; //currntly not used
+    LaserCfg_t(Laser l){laser=l;}
+    bool loadConfig(yarp::os::Searchable& config);
 
-    namespace event {
-        class Connection;
-        typedef boost::shared_ptr<Connection> ConnectionPtr;
-    }
-}
+};
 
-extern const std::string YarpLaserSensorScopedName;
-
-class yarp::dev::GazeboYarpDoubleLaserDriver:
+class yarp::dev::DoubleLaserDevice:
     public yarp::dev::DeviceDriver,
-    public yarp::dev::IRangefinder2D
-//    public yarp::dev::IMultipleWrapper
+    public yarp::dev::IRangefinder2D,
+    public yarp::dev::IMultipleWrapper
 {
 public:
 
-    GazeboYarpDoubleLaserDriver();
-    virtual ~GazeboYarpDoubleLaserDriver();
+    DoubleLaserDevice();
+    virtual ~DoubleLaserDevice();
 
-    /**
-     * Gazebo stuff
-     */
 
-    /**
-     * Callback for the WorldUpdateBegin Gazebo event.
-     */
-    void onUpdate(const gazebo::common::UpdateInfo&);
-
-    /**
-     * Callback for the WorldReset Gazebo event.
-     */
-    void onReset();
-    
-    
     /**
      * Yarp interfaces start here
      */
@@ -87,9 +73,9 @@ public:
     bool open(yarp::os::Searchable& config);
     bool close();
     
-//     //IMultipleWrapper interface
-//     bool attachAll(const PolyDriverList &p) override;
-//     bool detachAll() override;
+    //IMultipleWrapper interface
+    bool attachAll(const PolyDriverList &p) override;
+    bool detachAll() override;
     
     //IRangefinder2D interface
     virtual bool getRawData(yarp::sig::Vector &data) override;
@@ -109,10 +95,11 @@ private:
 
 
     void calculate(int sensNum, double distance, bool front, int &newSensNum, double &newdistance);
-    bool getLasersFromGazebo(yarp::os::Searchable& config);
-    bool init(void);
-    std::string m_deviceName;
-    gazebo::sensors::RaySensor* m_parentSensor;
+    bool verifyLasersConfigurations(void);
+    bool getLasersInterfaces(void);
+    bool createLasersDevices(void);
+//    bool readLaserConfig(yarp::os::Searchable& config, Laser l, LaserCfg_t &lasercfg);
+
     
     yarp::dev::PolyDriver * m_driver_laserFront;
     yarp::dev::IRangefinder2D* m_dev_laserFront;
@@ -122,27 +109,15 @@ private:
     
     int m_samples;
     double m_resolution;
-
     bool m_inited;
-    bool m_onSimulation;
+    bool m_onSimulator; //if true the device looks for front and back laser devices in gazebo, else creates them
 
-    /**
-     * Connection to the WorldUpdateBegin Gazebo event
-     */
-    gazebo::event::ConnectionPtr m_updateConnection;
-
-    /**
-     * Connection to the WorldReset Gazebo event
-     */
-    gazebo::event::ConnectionPtr m_resetConnection;
-
-    yarp::os::Property m_pluginParameters; /**< Contains the parameters of the device contained in the yarpConfigurationFile .ini file */
-
-    bool m_started;
-    int m_clock;
-    gazebo::common::Time m_previousTime;
     
     yarp::os::Mutex       m_mutex; //MI SERVE??????
+
+    LaserCfg_t m_lFrontCfg;
+    LaserCfg_t m_lBackCfg;
+
 };
 
 #endif //GAZEBOYARP_CONTROLBOARDDRIVER_HH
