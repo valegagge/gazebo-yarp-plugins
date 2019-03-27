@@ -17,7 +17,6 @@
 #include <yarp/os/Log.h>
 #include <yarp/os/LogStream.h>
 
-
 using namespace std;
 namespace gazebo
 {
@@ -122,7 +121,7 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
 
 
         // 5) Add the gazebo_doubleLaser device driver to the factory.
-        yarp::dev::Drivers::factory().add(new yarp::dev::DriverCreatorOf<yarp::dev::DoubleLaserDevice>("DoubleLaser", "Rangefinder2DWrapper", "GazeboYarpDoubleLaserDriver"));
+       // yarp::dev::Drivers::factory().add(new yarp::dev::DriverCreatorOf<cer::dev::cerDoubleLidar>("DoubleLaser", "Rangefinder2DWrapper", "GazeboYarpDoubleLaserDriver"));
 
 
 
@@ -179,12 +178,14 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
 
 
         yarp::os::Property doublelaser_dev_parameters;
-        if(!m_parameters.check("DEVICE-CFG"))
+        if(!m_parameters.check("onSimulator"))
         {
-            yError() << "GazeboYarpDoubleLaser: [DEVICE-CFG] group is missing in configuration file";
+            yError() << "GazeboYarpDoubleLaser: onSimulator parameter is missing in configuration file";
             return;
         }
-        doublelaser_dev_parameters.fromString(m_parameters.findGroup("DEVICE-CFG").toString());
+        doublelaser_dev_parameters.put("onSimulator", m_parameters.find("onSimulator").asBool());
+
+        doublelaser_dev_parameters.put("device", "cerDoubleLidar");
 
         if(!m_parameters.check("LASERFRONT-CFG"))
         {
