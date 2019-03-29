@@ -5,7 +5,6 @@
  */
 
 #include "DoubleLaser.hh"
-#include "DoubleLaserDevice.h"
 #include <GazeboYarpPlugins/common.h>
 #include <GazeboYarpPlugins/Handler.hh>
 #include <GazeboYarpPlugins/ConfHelpers.hh>
@@ -17,7 +16,14 @@
 #include <yarp/os/Log.h>
 #include <yarp/os/LogStream.h>
 
+
+/**
+ * @file DoubleLaser.h
+ * @authors: Valentina Gaggero <valentina.gaggero@iit.it>
+ */
+
 using namespace std;
+
 namespace gazebo
 {
 
@@ -33,7 +39,7 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
             m_iWrap_doublelaser->detachAll();
             m_iWrap_rangeFinder = 0;
         }
-        
+
         if (m_iWrap_rangeFinder) 
         {
             m_iWrap_rangeFinder->detachAll();
@@ -60,7 +66,7 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
     {
         if (!_sdf->HasElement("yarpConfigurationFile"))
         {
-            yError() << "GazeboYarpDoubleLaser: error: unabble to load configuration";
+            yError() << "GazeboYarpDoubleLaser: error: unable to load configuration";
             return false;
         }
 
@@ -111,7 +117,7 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
         }
 
         m_sensorName = _parent->GetScopedName();
-        
+
         //3) load configuration from sdf
         if(!readConfigurationFromFile( _parent, _sdf))
             return;
@@ -120,22 +126,14 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
         GazeboYarpPlugins::Handler::getHandler()->setRobot(get_pointer(_parent));
 
 
-        // 5) Add the gazebo_doubleLaser device driver to the factory.
-       // yarp::dev::Drivers::factory().add(new yarp::dev::DriverCreatorOf<cer::dev::cerDoubleLidar>("DoubleLaser", "Rangefinder2DWrapper", "GazeboYarpDoubleLaserDriver"));
-
-
-
-        yError()<< "LOAD parameters-----------------------------------------------";
-        yError() << m_parameters.toString();
-        yError() << "-------------------------------------------------------------";
-
-        //6) open wrapper Rangefinder2DWrapper
+        //5) open wrapper Rangefinder2DWrapper
         yarp::os::Property wrapper_parameters;
         if(!m_parameters.check("WRAPPER"))
         {
             yError() << "GazeboYarpDoubleLaser: [WRAPPER] group is missing in configuration file";
             return;
         }
+
         wrapper_parameters.fromString(m_parameters.findGroup("WRAPPER").toString());
         if(m_parameters.check("ROS"))
         {
@@ -146,37 +144,19 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
             yInfo() << "GazeboYarpDoubleLaser: ROS group is missing in configuration file";
         }
 
-
-        yError()<< "WRAPPER parameters-----------------------------------------------";
-        yError() << wrapper_parameters.toString();
-        yError() << "-------------------------------------------------------------";
-
         if(! m_wrapper_rangeFinder.open(wrapper_parameters))
         {
             yError()<<"GazeboYarpDoubleLaser failed: error in opening yarp driver wrapper Rangefinder2DWrapper!!!";
             return;
         }
-//         else
-//         {
-//             yError() << "GazeboYarpDoubleLaser : ho aperto il wrapper Rangefinder2DWrapper ";
-//
-//         }
 
         if (!m_wrapper_rangeFinder.view(m_iWrap_rangeFinder)) 
         {
             yError("GazeboYarpDoubleLaser : wrapper interface not found, load failed. Rangefinder2DWrapper");
             return;
         }
-//         else
-//         {
-//              yError() << "GazeboYarpDoubleLaser : ho ho fatto la view di Rangefinder2DWrapper ";
-//         }
 
-
-        // 8) Open the driver DoubleLaser
-        yError() << "GazeboYarpDoubleLaser : sto per aprire il device doublelaser..... ";
-
-
+        // 6) Open the driver DoubleLaser
         yarp::os::Property doublelaser_dev_parameters;
         if(!m_parameters.check("onSimulator"))
         {
@@ -202,19 +182,13 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
         }
         doublelaser_dev_parameters.addGroup("LASERBACK-CFG").fromString(m_parameters.findGroup("LASERBACK-CFG").toString());
 
-        if( m_driver_doublelaser.open(doublelaser_dev_parameters) )
+        if(!m_driver_doublelaser.open(doublelaser_dev_parameters) )
         {
-        
-            yError() << "GazeboYarpDoubleLaser : ho aperto il driver doubleLaser ";
-        }
-        else 
-        {
-            yError()<<"GazeboYarpDoubleLaser Plugin failed: error in opening yarp driver doubleLaser";
+            yError()<<"GazeboYarpDoubleLaser: error in opening yarp driver doubleLaser";
             return;
         }
-        
 
-        // 9 )finds device of laser front and laser back. the device names are written in configuration .ini file
+        // 7 )finds device of laser front and laser back. the device names are written in configuration .ini file
         yarp::os::Bottle &front_name = m_parameters.findGroup("LASERFRONT-CFG").findGroup("sensorName");
         if(front_name.isNull())
         {
@@ -231,7 +205,6 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
 
         std::string laserFront_name = front_name.find("sensorName").asString();
         std::string laserBack_name = back_name.find("sensorName").asString();
-       // yError() << "GazeboYarpDoubleLaser: laserFront=" <<  laserFront_name <<" laserBack=" << laserBack_name ;
 
 
         m_driver_laserFront = GazeboYarpPlugins::Handler::getHandler()->getDevice(laserFront_name);
@@ -240,13 +213,6 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
             yError() << "GazeboYarpDoubleLaser: cannot find laserFront device";
             return;
         }
-//         else
-//         {
-//             yError() << "****GazeboYarpDoubleLaser: finded laserFront device. OK";
-//         }
-
-
-
 
         m_driver_laserBack = GazeboYarpPlugins::Handler::getHandler()->getDevice(laserBack_name);
         if(m_driver_laserBack == nullptr)
@@ -254,14 +220,8 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
             yError() << "GazeboYarpDoubleLaser: cannot find laserBack device";
             return;
         }
-//         else
-//         {
-//             yError() << "****GazeboYarpDoubleLaser: finded laserBack device. OK";
-//         }
 
-
-
-        yarp::dev::PolyDriverList listoflasers; //it will contain front and back lasera
+        yarp::dev::PolyDriverList listoflasers; //it will contain front and back laser device pointers
         yarp::dev::PolyDriverDescriptor laserFront_desc;
         yarp::dev::PolyDriverDescriptor laserBack_desc;
 
@@ -277,18 +237,18 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
         if(!m_iWrap_doublelaser->attachAll(listoflasers))
         {
             yError() << "GazeboYarpDoubleLaser: error douring attaching double laser to front and back laser devices";
-            //TODO: chiudi il devicedouble
+            m_driver_doublelaser.close();
             return;
         }
 
 
-        // 10 )attach rangefinder wrapper to double laser
+        // 8 )attach rangefinder wrapper to double laser
         yarp::dev::PolyDriverList listofdoubellaser; //it will contain only double laser
         yarp::dev::PolyDriverDescriptor doublelaser_desc;
         doublelaser_desc.poly = &m_driver_doublelaser;
-        
+
         listofdoubellaser.push(doublelaser_desc);
-        
+
         if(m_iWrap_rangeFinder->attachAll(listofdoubellaser))
         {
             yError() << "GazeboYarpDoubleLaser: ho fatto attach di rangeFinder wrapper al double laser. OK";
@@ -297,11 +257,9 @@ GZ_REGISTER_MODEL_PLUGIN(GazeboYarpDoubleLaser)
         {
             yError() << "GazeboYarpDoubleLaser: ERRORE mentre facevo attach di rangeFinder wrapper al double laser.";
         }
-        
-         
-         
-         
-      //Insert the pointer in the singleton handler for retriving it in the yarp driver
+
+
+        //Insert the pointer in the singleton handler for retrieving it in the yarp driver
         GazeboYarpPlugins::Handler::getHandler()->setRobot(get_pointer(_parent));
 
      }
